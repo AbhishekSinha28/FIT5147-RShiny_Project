@@ -1,0 +1,177 @@
+---
+title: "Visualisation Project"
+author: "Abhishek Sinha"
+date: "14/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(treemap)
+library(ggplot2)
+```
+
+```{r}
+data_1 <- read_excel(here::here("data","Data_Tables_LGA_Criminal_Incidents_Year_Ending_March_2020.xlsx"), sheet = "Table 01")
+data_2 <- read_excel(here::here("data","Data_Tables_LGA_Criminal_Incidents_Year_Ending_March_2020.xlsx"), sheet = "Table 02")
+data_3 <- read_excel(here::here("data","Data_Tables_LGA_Criminal_Incidents_Year_Ending_March_2020.xlsx"), sheet = "Table 03")
+data_4 <- read_excel(here::here("data","Data_Tables_LGA_Criminal_Incidents_Year_Ending_March_2020.xlsx"), sheet = "Table 04")
+data_5 <- read_excel(here::here("data","Data_Tables_LGA_Criminal_Incidents_Year_Ending_March_2020.xlsx"), sheet = "Table 05")
+```
+
+# Tree Map
+Tree map will be used to present the number of recorded cases against location subdivision and with a filter on LGA
+```{r}
+data_4
+```
+
+```{r}
+unique(data_4$`Location Subdivision`)
+```
+
+Variables I will be using are LGA, Location Subdivision, Offence Count, Year
+
+```{r}
+data_tree <- data_4 %>% select(c("Year","Local Government Area","Location Subdivision","Incidents Recorded"))
+```
+
+```{r}
+data_tree <- data_tree %>% group_by(Year, `Local Government Area`, `Location Subdivision`) %>% summarise(`Incidents Recorded` = sum(`Incidents Recorded`))
+```
+
+```{r}
+data_tree
+```
+
+```{r}
+subset_1<- data_tree %>% filter(Year == 2011 & `Local Government Area` == "Alpine")
+```
+
+```{r}
+treemap(subset_1,
+        index = "Location Subdivision",
+        vSize = "Incidents Recorded",
+        type = "index",
+        palette = "Reds",
+        )
+```
+
+# Sunburst Plot
+For presenting investigation status of the recorded crimes with a filter on LGA
+
+```{r}
+data_5
+```
+
+```{r}
+unique(data_5$`Investigation Status`)
+```
+
+```{r}
+data_sun <- data_5 %>% select(c("Year","Local Government Area","Investigation Status","Incidents Recorded"))
+```
+
+```{r}
+subset_2<- data_sun %>% filter(Year == 2011 & `Local Government Area` == "Alpine")
+```
+
+```{r}
+subset_2
+```
+
+```{r}
+subset_1 %>% summarise(sum(`Incidents Recorded`))
+subset_2 %>% summarise(sum(`Incidents Recorded`))
+```
+
+```{r}
+library(plotly)
+
+plot_ly(
+        labels = c("Alpine","Charges laid","No charges laid","Unsolved"),
+        parents = c("","Alpine","Alpine","Alpine"),
+        values = c(305,119,60,126),
+        type = 'sunburst',
+        branchvalues = 'total'
+)
+```
+
+```{r}
+subset_3<- data_sun %>% filter(`Local Government Area` == "Alpine")
+```
+
+```{r}
+subset_3$Year <- as.character(subset_3$Year)
+```
+
+```{r}
+#ggplot(data = subset_3 %>% filter(`Investigation Status` == "Charges laid"), aes(x=Year, y=`Incidents Recorded`, group = 1)) #+ geom_line()
+
+subset_3 %>%
+    filter(`Investigation Status` == "Charges laid") %>%
+    ggplot(aes(x = Year, y = `Incidents Recorded`)) +
+    geom_col(fill = "navyblue", position = "dodge") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    labs(title = "Total no. of crime incidents with Charges laid across Years", x = "Year", y = "Crime Incidents with Charges laid")
+
+subset_3 %>%
+    filter(`Investigation Status` == "No charges laid") %>%
+    ggplot(aes(x = Year, y = `Incidents Recorded`)) +
+    geom_col(fill = "red") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    labs(title = "Total no. of crime incidents with No Charges laid across Years", x = "Year", y = "Crime Incidents with no Charges laid")
+
+subset_3 %>%
+    filter(`Investigation Status` == "Unsolved") %>%
+    ggplot(aes(x = Year, y = `Incidents Recorded`)) +
+    geom_col(fill = "orange") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    labs(title = "Total no. of crime incidents with Unsolved investigation status across Years", x = "Year", y = "Crime Incidents with Unsolved status")
+```
+
+# Choropleth Map
+```{r}
+unique(data_2$`Local Government Area`)
+unique(data_2$`Police Service Area`)
+```
+
+
+# Q2 Crime Type
+
+```{r}
+data_3 <- read_excel(here::here("data","Data_Tables_LGA_Criminal_Incidents_Year_Ending_March_2020.xlsx"), sheet = "Table 03")
+```
+
+```{r}
+data_3 <- data_3 %>% select(c("Year","Local Government Area","Offence Division","Incidents Recorded"))
+```
+
+```{r}
+data_odiv <- data_3 %>% group_by(`Local Government Area`, `Offence Division`, Year) %>% summarise(`Incidents Recorded` = sum(`Incidents Recorded`))
+
+data_odiv$Year <- as.character(data_odiv$Year)
+
+data_odiv$`Local Government Area` <- toupper(data_odiv$`Local Government Area`)
+```
+
+```{r}
+
+p1 <- data_odiv %>%
+    filter(`Local Government Area` == "ALPINE", `Offence Division` == "A Crimes against the person") %>%
+    ggplot(aes(Year, `Incidents Recorded`)) +
+    geom_bar(stat = "identity",fill = "navyblue", position = "dodge") +
+    theme_bw() +
+    labs(title = "Total no. of crime incidents with Charges laid across Years", x = "Year", y = "Crime Incidents with Charges laid")
+
+library(plotly)
+ggplotly(p1)
+```
+

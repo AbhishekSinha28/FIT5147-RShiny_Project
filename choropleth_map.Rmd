@@ -1,0 +1,103 @@
+---
+title: "choropleth map"
+author: "Abhishek Sinha"
+date: "16/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(leaflet)
+library(ggplot2)
+library(dplyr)
+library(rgeos)
+library(maptools)
+library(ggmap)
+library(broom)
+```
+
+```{r}
+vic.lga.shp_1 <- readShapeSpatial("data/vmlite_lga_cm/vmlite_lga_cm.shp")
+data_2 <- read_excel(here::here("data","Data_Tables_LGA_Criminal_Incidents_Year_Ending_March_2020.xlsx"), sheet = "Table 02")
+```
+
+
+```{r}
+data_2$`Local Government Area` <- toupper(data_2$`Local Government Area`)
+
+data_2 <- data_2 %>% select(c("Year","Local Government Area","Incidents Recorded","LGA Rate per 100,000 population"))
+
+#data_2 <- data_2 %>% mutate(`Local Government Area` = recode(`Local Government Area`, "COLAC-OTWAY" = "COLAC OTWAY","GREATER #BENDIGO" = "BENDIGO", "GREATER DANDENONG" = "DANDENONG","GREATER GEELONG" = "GEELONG","GREATER SHEPPARTON" = "SHEPPARTON"))
+```
+
+
+```{r}
+data_2 <- data_2 %>% mutate(`Local Government Area` = recode(`Local Government Area`, "COLAC-OTWAY" = "COLAC OTWAY"))
+```
+
+```{r}
+data_2_total <- data_2 %>% group_by(Year,`Local Government Area`) %>% summarise(`LGA Rate per 100,000 population` = sum(`LGA Rate per 100,000 population`))
+
+data_2_total <- data_2_total %>% mutate(log_LGA_Rate_per_100000_pop = log(`LGA Rate per 100,000 population`))
+```
+
+
+```{r}
+
+#vic.lga.shp<- vic.lga.shp[vic.lga.shp$lga_name[-c(4,8,46,39,21,45,59,75)],]
+
+colnames(vic.lga.shp@data)[6] = "Local Government Area"
+
+#unique(data_2_total$`Local Government Area`)
+
+merge.lga.profiles3<-sp::merge(vic.lga.shp, data_2_total, 
+                               by="Local Government Area", duplicateGeoms = TRUE)
+
+vic.lga.shp$`Local Government Area`
+```
+
+```{r}
+map1 <- leaflet(merge.lga.profiles3) %>%
+       addTiles()
+
+#map1 %>% addPolygons()
+labels1 <- sprintf(
+      "<strong>%s</strong><br/><h6>%g</h6>",
+      merge.lga.profiles3$`Local Government Area`,
+      merge.lga.profiles3$log_LGA_Rate_per_100000_pop
+    ) %>% lapply(htmltools::HTML)
+
+pals <- colorNumeric(
+      "YlOrRd",
+      domain = merge.lga.profiles3$log_LGA_Rate_per_100000_pop
+    )
+map1 %>% 
+      addPolygons(
+        fillColor = ~pals(log_LGA_Rate_per_100000_pop),
+        weight = 2,
+        opacity = 1,
+        color = "white",
+        dashArray = "3",
+        fillOpacity = 0.7,
+       
+        highlight = highlightOptions(
+          weight = 5,
+          color = "#666",
+          dashArray = "",
+          fillOpacity = 0.7,
+          bringToFront = TRUE),
+        label = labels1,
+        
+        labelOptions = labelOptions(
+          style = list("font-weight" = "normal", padding = "3px 8px"),
+          textsize = "10px",
+          direction = "auto"
+         ))%>% 
+  addLegend(pal = pals, 
+            values = ~log_LGA_Rate_per_100000_pop, 
+            opacity = 0.7, title = "Log of Cases by LGA per 100,000",
+            position = "bottomright")
+```
